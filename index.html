@@ -4793,9 +4793,9 @@
         const remaining = activeGroups.filter(g => !onLeave.includes(g));
         setGroupCells(mainsByGroup(remaining[0]), '07.00 - 19.00');
         setGroupCells(mainsByGroup(remaining[1]), '19.00 - 07.00');
-      } else if (onLeave.length === 2) {
+      } else if (onLeave.length >= 2) {
         const remaining = activeGroups.filter(g => !onLeave.includes(g))[0];
-        const remEmps = mainsByGroup(remaining);
+        const remEmps = remaining ? mainsByGroup(remaining) : [];
         const offEmps = mainsByGroup(rst.off);
         const offStatus = getOffDayStatus(dateStr, rst.off);
         if (offStatus.canCallIn && offEmps.length) {
@@ -4805,6 +4805,14 @@
           // OFF sedang Libur ke-1 pasca Malam -> wajib istirahat -> fallback ke DW (07.00 - 19.00)
           setGroupCells(dwEmps, '07.00 - 19.00');
           setGroupCells(remEmps, '19.00 - 07.00');
+        }
+
+        // Jika di jam 07.00 - 19.00 masih ada 1 slot kosong (< 2 orang), otomatis plot DW (Johan) ke 07.00 - 19.00
+        const dayCoverCount = schedState.employees.filter(e =>
+          e.role === 'main' && schedState.cells[`${e.name}||${dateStr}`] === '07.00 - 19.00'
+        ).length;
+        if (dayCoverCount < 2) {
+          setGroupCells(dwEmps, '07.00 - 19.00');
         }
       }
       return ops;

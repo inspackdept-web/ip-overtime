@@ -3,7 +3,7 @@
  * - Panggilan API (Apps Script) selalu langsung ke jaringan, tidak pernah di-cache
  * Naikkan VERSION setiap kali index.html diubah supaya semua HP mengambil versi baru.
  */
-const VERSION = 'ip-overtime-v30';
+const VERSION = 'ip-overtime-v31';
 const SHELL = [
   './',
   './index.html',
