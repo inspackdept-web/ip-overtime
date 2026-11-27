@@ -1257,10 +1257,10 @@
         </div>
       </div>
 
-      <!-- Layout Shift Roster 12-Hari + Matriks Jadwal Overtime (1:1 Preview) -->
-      <div class="flex flex-col xl:flex-row gap-4 items-start">
+      <!-- Layout Shift Roster 12-Hari + Matriks Jadwal Overtime (Kiri di semua Laptop/PC >=1024px, atas di HP/Tablet) -->
+      <div class="flex flex-col lg:flex-row gap-4 items-start">
         <!-- Kiri: Tabel Shift Roster 12-Hari + Tanggal Bulan Aktif -->
-        <div class="w-full xl:w-[275px] xl:flex-shrink-0 glass-card rounded-3xl p-4 space-y-3">
+        <div class="w-full lg:w-[258px] xl:w-[275px] lg:flex-shrink-0 glass-card rounded-3xl p-4 space-y-3">
           <div>
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-1.5">
@@ -1276,7 +1276,7 @@
         </div>
 
         <!-- Kanan: Matriks Jadwal Overtime (1 Bulan Lalu + Bulan Aktif + 1 Bulan Depan) -->
-        <div class="w-full xl:flex-1 min-w-0 glass-card rounded-3xl p-2 sm:p-4 overflow-hidden">
+        <div class="w-full lg:flex-1 min-w-0 glass-card rounded-3xl p-2 sm:p-4 overflow-hidden">
           <div id="schedScrollWrap" class="sched-wrap rounded-2xl border border-slate-200 dark:border-white/10" onscroll="onSchedHorizontalScroll()">
             <div id="schedMatrixContainer" class="block w-max min-w-full">
               <div class="min-h-[260px] flex items-center justify-center text-slate-400 text-sm">
@@ -3932,7 +3932,24 @@
       }
 
       const hasOt = todayOt.length > 0;
-      if (!hasHoliday && !hasOt) {
+
+      // Kumpulkan pengumuman Movement Shift (hari ini s/d 7 hari ke depan)
+      const maxMoveDate = addDaysYMD(today, 7);
+      const upcomingMoves = [];
+      Object.keys(schedState.shiftTransfers || {}).forEach(k => {
+        const tr = schedState.shiftTransfers[k];
+        if (!tr || !tr.effectiveDate || !tr.toDept) return;
+        if (tr.effectiveDate >= today && tr.effectiveDate <= maxMoveDate) {
+          const empName = k.split('||')[0];
+          const tm = parsePositionMeta(tr.toDept);
+          const shortLbl = tm.role === 'backup' ? `Leader ${tm.group}` : (['DW','PACK','SPEC','SPV'].includes(tm.group) ? tm.group : `Shift ${tm.group}`);
+          upcomingMoves.push({ empName, effDate: tr.effectiveDate, shortLbl });
+        }
+      });
+      upcomingMoves.sort((a, b) => a.effDate.localeCompare(b.effDate) || a.empName.localeCompare(b.empName));
+      const hasMove = upcomingMoves.length > 0;
+
+      if (!hasHoliday && !hasOt && !hasMove) {
         banner.classList.add('hidden');
         return;
       }
@@ -3944,27 +3961,46 @@
       const otPeopleHtml = todayOt.map(o =>
         `👷 <b>${esc(o.name)}</b> (${esc(o.span)}${o.task ? ' • ' + esc(o.task) : ''})`
       ).join(' &nbsp;•&nbsp; ');
-      const otPart = `⚡ <b>LEMBUR HARI INI (${todayLabel})</b>${rsn ? ` &nbsp;•&nbsp; Event: <span class="px-1.5 py-0.5 rounded bg-white/20 font-extrabold">${esc(rsn)}</span>` : ''} &nbsp;•&nbsp; ${otPeopleHtml}`;
+      const otPart = hasOt ? `⚡ <b>LEMBUR HARI INI (${todayLabel})</b>${rsn ? ` &nbsp;•&nbsp; Event: <span class="px-1.5 py-0.5 rounded bg-white/20 font-extrabold">${esc(rsn)}</span>` : ''} &nbsp;•&nbsp; ${otPeopleHtml}` : '';
 
-      let fullSegment = '';
-      if (hasHoliday && hasOt) {
+      let movePart = '';
+      if (hasMove) {
+        const byDate = {};
+        upcomingMoves.forEach(m => {
+          if (!byDate[m.effDate]) byDate[m.effDate] = [];
+          byDate[m.effDate].push(`<b>${esc(m.empName)}</b> &rarr; <span class="px-1.5 py-0.5 rounded bg-white/20 font-extrabold">${esc(m.shortLbl)}</span>`);
+        });
+        movePart = Object.keys(byDate).sort().map(d =>
+          `🔄 <b>MOVEMENT SHIFT (${d === today ? 'Mulai Hari Ini' : 'Mulai ' + formatShortDateId(d)}):</b> ${byDate[d].join(' &nbsp;•&nbsp; ')}`
+        ).join(' &nbsp;&nbsp;|&nbsp;&nbsp; ');
+      }
+
+      const parts = [];
+      if (hasHoliday) parts.push(formatHolidayGreeting(today, rst.holidayName));
+      if (hasOt) parts.push(otPart);
+      if (hasMove) parts.push(movePart);
+      const fullSegment = parts.join(' &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ') + ' &nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp; ';
+
+      if (hasHoliday && (hasOt || hasMove)) {
         banner.className = 'no-print bg-gradient-to-r from-rose-600 via-indigo-600 to-cyan-600 text-white text-xs font-semibold py-2 overflow-hidden cursor-pointer border-b border-white/15 shadow-sm';
         if (badge) badge.className = 'flex-shrink-0 pl-3 sm:pl-4 pr-3 py-0.5 bg-rose-700/95 border-r border-white/25 flex items-center gap-1.5 font-extrabold tracking-wide uppercase text-[10.5px] z-10';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-300 animate-ping';
-        if (lbl) lbl.textContent = 'Libur & Lembur';
-        fullSegment = `${formatHolidayGreeting(today, rst.holidayName)} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ${otPart} &nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp; `;
+        if (lbl) lbl.textContent = hasOt ? 'Libur & Lembur' : 'Libur & Info Shift';
       } else if (hasOt) {
         banner.className = 'no-print bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 text-white text-xs font-semibold py-2 overflow-hidden cursor-pointer border-b border-white/15 shadow-sm';
         if (badge) badge.className = 'flex-shrink-0 pl-3 sm:pl-4 pr-3 py-0.5 bg-indigo-700/95 border-r border-white/25 flex items-center gap-1.5 font-extrabold tracking-wide uppercase text-[10.5px] z-10';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-300 animate-ping';
-        if (lbl) lbl.textContent = 'Lembur Hari Ini';
-        fullSegment = `${otPart} &nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp; `;
+        if (lbl) lbl.textContent = hasMove ? 'Lembur & Shift' : 'Lembur Hari Ini';
+      } else if (hasMove) {
+        banner.className = 'no-print bg-gradient-to-r from-amber-600 via-indigo-600 to-cyan-600 text-white text-xs font-semibold py-2 overflow-hidden cursor-pointer border-b border-white/15 shadow-sm';
+        if (badge) badge.className = 'flex-shrink-0 pl-3 sm:pl-4 pr-3 py-0.5 bg-amber-700/95 border-r border-white/25 flex items-center gap-1.5 font-extrabold tracking-wide uppercase text-[10.5px] z-10';
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-200 animate-ping';
+        if (lbl) lbl.textContent = 'Movement Shift';
       } else {
         banner.className = 'no-print bg-gradient-to-r from-rose-600 via-red-600 to-amber-500 text-white text-xs font-semibold py-2 overflow-hidden cursor-pointer border-b border-white/15 shadow-sm';
         if (badge) badge.className = 'flex-shrink-0 pl-3 sm:pl-4 pr-3 py-0.5 bg-rose-700/95 border-r border-white/25 flex items-center gap-1.5 font-extrabold tracking-wide uppercase text-[10.5px] z-10';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-200 animate-ping';
         if (lbl) lbl.textContent = 'Hari Libur';
-        fullSegment = `${formatHolidayGreeting(today, rst.holidayName)} &nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp; `;
       }
 
       // Tepat 2 blok identik (masing-masing 2x segmen) agar translateX(-50%) loop mulus 100% tanpa jeda/lompatan
