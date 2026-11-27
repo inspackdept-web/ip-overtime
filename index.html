@@ -1407,6 +1407,7 @@
               <div>
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1.5">Jabatan / Shift <span class="text-rose-500">*</span></label>
                 <select id="empAddDept" required class="w-full bg-white dark:bg-dark-900 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-white/15 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="Inspection Supervisor">Inspection Supervisor</option>
                   <option value="Inspection Shift Leader A">Inspection Shift Leader A</option>
                   <option value="Inspection Shift A">Inspection Shift A</option>
                   <option value="Inspection Shift Leader B">Inspection Shift Leader B</option>
@@ -2863,9 +2864,9 @@
       select.innerHTML = '<option value="" disabled selected>-- Pilih Nama Anda --</option>';
 
       list.forEach(emp => {
-        // Posisi Shift Leader tidak melakukan lembur -> sembunyikan dari dropdown Form Pengajuan Lembur
+        // Posisi Shift Leader & Supervisor tidak melakukan lembur -> sembunyikan dari dropdown Form Pengajuan Lembur
         const meta = typeof parsePositionMeta === 'function' ? parsePositionMeta(emp.department) : null;
-        if (meta && meta.role === 'backup') return;
+        if (meta && (meta.role === 'backup' || meta.role === 'spv')) return;
         const opt = document.createElement('option');
         opt.value = emp.name;
         opt.textContent = `${emp.name} (${emp.department || 'IP Section'})`;
@@ -3638,6 +3639,7 @@
      * 16. ENGINE JADWAL OVERTIME, SHIFT ROSTER 2026-2027, CC & OVERDUE
      * ================================================================== */
     const POSITION_OPTIONS = [
+      { label: 'Inspection Supervisor',     group: 'SPV',  rosterGroup: 'DW', role: 'spv',    order: 0 },
       { label: 'Inspection Shift Leader A', group: 'A',    rosterGroup: 'A',  role: 'backup', order: 1 },
       { label: 'Inspection Shift A',        group: 'A',    rosterGroup: 'A',  role: 'main',   order: 2 },
       { label: 'Inspection Shift Leader B', group: 'B',    rosterGroup: 'B',  role: 'backup', order: 3 },
@@ -3660,7 +3662,7 @@
       'HOUSEKEEPING', 'BREAKDOWN', 'PROJECT SPESIAL'
     ];
 
-    const LEAVE_VALUES = ['Annual Leave', 'Sick Leave', 'Dispensasi Sp.Kep'];
+    const LEAVE_VALUES = ['Annual Leave', 'Sick Leave', 'Dispensasi Sp.Kep', 'Off Movement'];
 
     // Siklus 12 baris: [07-15 (Pagi), 15-23 (Sore), 23-07 (Malam), OFF]
     const CYCLE_12 = [
@@ -3671,7 +3673,7 @@
     ];
 
     const SHIFT_GROUP_COLOR = {
-      A: '#EF4444', B: '#475569', C: '#2563EB', D: '#16A34A', DW: '#0891B2', SPEC: '#D97706', PACK: '#9333EA'
+      SPV: '#4F46E5', A: '#EF4444', B: '#475569', C: '#2563EB', D: '#16A34A', DW: '#0891B2', SPEC: '#D97706', PACK: '#9333EA'
     };
 
     const ROSTER_STORE = {
@@ -3824,7 +3826,8 @@
         if (sh) return POSITION_OPTIONS.find(p => p.group === 'PACK' && p.rosterGroup === sh) || POSITION_OPTIONS[9];
         return POSITION_OPTIONS[13];
       }
-      if (isDw) return POSITION_OPTIONS[8];
+      if (u.includes('SUPERVISOR') || u === 'SPV') return POSITION_OPTIONS[0];
+      if (isDw) return POSITION_OPTIONS.find(p => p.group === 'DW') || POSITION_OPTIONS[9];
       if (u.includes('SPECIALIST') || u.includes('SPEC')) return POSITION_OPTIONS.find(p => p.group === 'SPEC') || POSITION_OPTIONS[9];
       if (sh) {
         const role = isLeader ? 'backup' : 'main';
@@ -4849,7 +4852,7 @@
               <button type="button" onclick="document.getElementById('editCellVal').value='Annual Leave'" class="py-2 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-extrabold border border-rose-500/25">Annual Leave</button>
               <button type="button" onclick="document.getElementById('editCellVal').value='Sick Leave'" class="py-2 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-extrabold border border-rose-500/25">Sick Leave</button>
               <button type="button" onclick="document.getElementById('editCellVal').value='Dispensasi Sp.Kep'" class="py-2 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-extrabold border border-rose-500/25">Dispensasi Sp.Kep</button>
-              <button type="button" onclick="document.getElementById('editCellVal').value='';document.getElementById('editCellTask').value=''" class="py-2 px-2.5 rounded-xl bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-extrabold">Kosongkan Sel</button>
+              <button type="button" onclick="document.getElementById('editCellVal').value='Off Movement'" class="py-2 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 text-xs font-extrabold border border-amber-500/35">Off Movement</button>
             </div>
           </div>
           <div>
@@ -4897,9 +4900,9 @@
         allShiftMembers(g).some(emp => LEAVE_VALUES.includes(schedState.cells[`${emp.name}||${dateStr}`] || ''))
       );
 
-      const reasonMap = { 'Annual Leave': 'AL Cover', 'Sick Leave': 'Sick Leave Cover', 'Dispensasi Sp.Kep': 'SPKEP Cover' };
+      const reasonMap = { 'Annual Leave': 'AL Cover', 'Sick Leave': 'Sick Leave Cover', 'Dispensasi Sp.Kep': 'SPKEP Cover', 'Off Movement': 'Off Movement' };
       const curRsn = schedState.reasons[dateStr] || '';
-      const isLeaveReason = !curRsn || /^(AL Cover|Sick Leave Cover|SPKEP Cover)/.test(curRsn);
+      const isLeaveReason = !curRsn || /^(AL Cover|Sick Leave Cover|SPKEP Cover|Off Movement)/.test(curRsn);
 
       // Bersihkan auto-cover shift aktif non-cuti jika jumlah cuti 0 (pembatalan cuti)
       if (onLeave.length === 0) {
@@ -5103,6 +5106,7 @@
               <option value="Annual Leave">Cuti — Annual Leave (Auto-Plot Cover)</option>
               <option value="Sick Leave">Cuti — Sick Leave (Auto-Plot Cover)</option>
               <option value="Dispensasi Sp.Kep">Cuti — Dispensasi Sp.Kep (Auto-Plot Cover)</option>
+              <option value="Off Movement">Off Movement (Auto-Plot Cover)</option>
               <option value="JC MC 11">JC MC 11 (Catat Event saja)</option>
               <option value="JC MC 12">JC MC 12 (Catat Event saja)</option>
               <option value="JC MC 14">JC MC 14 (Catat Event saja)</option>
@@ -5539,27 +5543,24 @@
       return { year, jan1Row, holidays, dayRowMap };
     }
 
-    // ---- Screenshot PNG 2x Retina HD ----
+    // ---- Screenshot PNG 2x Retina HD (Pilih Dari Tanggal s/d Sampai Tanggal) ----
     let ssLastDataUrl = '';
     let ssLastFilename = '';
-    let ssActiveDays = 7;
 
     function openScreenshotModal() {
       const startDate = getTodayYMD();
-      ssActiveDays = 7;
+      const endDate = addDaysYMD(startDate, 6);
       const body = `
         <div class="space-y-3">
           <div class="flex flex-wrap items-end justify-between gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-dark-850 border border-slate-200 dark:border-white/10">
-            <div>
-              <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Mulai Tanggal</label>
-              <input type="date" id="ssStartDate" value="${startDate}" onchange="refreshScreenshotPreview(ssActiveDays, false)" class="bg-white dark:bg-dark-900 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-white/15 px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Rentang Hari</label>
-              <div class="flex items-center gap-1.5">
-                <button type="button" id="ssBtn7" onclick="refreshScreenshotPreview(7, false)" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold">7 Hari</button>
-                <button type="button" id="ssBtn10" onclick="refreshScreenshotPreview(10, false)" class="px-3 py-1.5 rounded-xl bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-500/30">10 Hari</button>
-                <button type="button" id="ssBtn14" onclick="refreshScreenshotPreview(14, false)" class="px-3 py-1.5 rounded-xl bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-500/30">14 Hari</button>
+            <div class="flex flex-wrap items-end gap-2.5">
+              <div>
+                <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Dari Tanggal</label>
+                <input type="date" id="ssStartDate" value="${startDate}" onchange="refreshScreenshotPreview(false)" class="bg-white dark:bg-dark-900 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-white/15 px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+              <div>
+                <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Sampai Tanggal</label>
+                <input type="date" id="ssEndDate" value="${endDate}" onchange="refreshScreenshotPreview(false)" class="bg-white dark:bg-dark-900 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-white/15 px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
               </div>
             </div>
             <button type="button" onclick="downloadCurrentSchedulePng()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-emerald-600/25">
@@ -5570,22 +5571,27 @@
             Menyiapkan gambar HD...
           </div>
         </div>`;
-      openJadwalModal('📸 Screenshot Jadwal Overtime (PNG HD)', 'Pilih tanggal mulai & rentang hari, lalu klik Download PNG', body, 'max-w-3xl');
-      setTimeout(() => refreshScreenshotPreview(7, false), 80);
+      openJadwalModal('📸 Screenshot Jadwal Overtime (PNG HD)', 'Pilih rentang tanggal mulai sampai selesai, lalu klik Download PNG', body, 'max-w-3xl');
+      setTimeout(() => refreshScreenshotPreview(false), 80);
     }
 
-    function refreshScreenshotPreview(numDays, autoDownload) {
-      ssActiveDays = numDays || 7;
-      [7, 10, 14].forEach(n => {
-        const b = document.getElementById(`ssBtn${n}`);
-        if (!b) return;
-        b.className = n === ssActiveDays
-          ? 'px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold'
-          : 'px-3 py-1.5 rounded-xl bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-500/30';
-      });
+    function refreshScreenshotPreview(autoDownload) {
       const startEl = document.getElementById('ssStartDate');
+      const endEl = document.getElementById('ssEndDate');
       const startDate = (startEl && startEl.value) ? startEl.value : getTodayYMD();
-      generateSchedulePng(startDate, ssActiveDays, autoDownload);
+      let endDate = (endEl && endEl.value) ? endEl.value : addDaysYMD(startDate, 6);
+      if (endDate < startDate) {
+        endDate = startDate;
+        if (endEl) endEl.value = endDate;
+      }
+      const d1 = new Date(startDate + 'T00:00:00');
+      const d2 = new Date(endDate + 'T00:00:00');
+      let numDays = Math.round((d2 - d1) / 86400000) + 1;
+      if (numDays > 31) {
+        numDays = 31;
+        if (endEl) endEl.value = addDaysYMD(startDate, 30);
+      }
+      generateSchedulePng(startDate, numDays, autoDownload);
     }
 
     function downloadCurrentSchedulePng() {
@@ -5847,11 +5853,20 @@
           const sub = findSubmissionForCell(emp.name, ds);
           const val = schedState.cells[key] || (sub ? formatSpanFromSubmission(sub, emp) : '');
           const task = schedState.tasks[key] || '';
+          const trOnDate = (schedState.shiftTransfers || {})[key] || null;
+          let trLbl = '';
+          if (trOnDate && trOnDate.toDept) {
+            const tm = parsePositionMeta(trOnDate.toDept);
+            trLbl = '→ ' + (tm.role === 'backup' ? `Leader ${tm.group}` : (['DW','PACK','SPEC','SPV'].includes(tm.group) ? tm.group : `Shift ${tm.group}`));
+          }
           if (val) {
             const isLeave = LEAVE_VALUES.includes(val);
             let fill = '#F1F5F9', stroke = '#94A3B8', textCol = '#334155', dashed = true;
             if (isLeave) {
-              fill = '#FFE4E6'; stroke = '#FB7185'; textCol = '#BE123C'; dashed = false;
+              fill = val === 'Off Movement' ? '#FEF3C7' : '#FFE4E6';
+              stroke = val === 'Off Movement' ? '#F59E0B' : '#FB7185';
+              textCol = val === 'Off Movement' ? '#92400E' : '#BE123C';
+              dashed = false;
             } else if (sub && String(sub.status).toLowerCase() === 'approved') {
               fill = '#D1FAE5'; stroke = '#10B981'; textCol = '#065F46'; dashed = false;
             } else if (sub) {
@@ -5865,11 +5880,18 @@
             drawRRect(cx + 5, y + 5, colW - 10, rowH - 10, isLeave ? 14 : 9, fill, stroke, 1.4, dashed);
             ctx.fillStyle = textCol;
             ctx.font = '800 10.5px Arial, sans-serif';
-            ctx.fillText(val, cx + colW / 2, y + (task && !isLeave ? 20 : 26));
-            if (task && !isLeave) {
+            const subLine = trLbl || (task && !isLeave ? task.slice(0, 14) : '');
+            ctx.fillText(val, cx + colW / 2, y + (subLine ? 20 : 26));
+            if (subLine) {
+              ctx.fillStyle = trLbl ? '#B45309' : textCol;
               ctx.font = '800 8.5px Arial, sans-serif';
-              ctx.fillText(task.slice(0, 14), cx + colW / 2, y + 33);
+              ctx.fillText(subLine, cx + colW / 2, y + 33);
             }
+          } else if (trLbl) {
+            drawRRect(cx + 8, y + 11, colW - 16, rowH - 22, 7, '#FEF3C7', '#F59E0B', 1.2, false);
+            ctx.fillStyle = '#92400E';
+            ctx.font = '800 9.5px Arial, sans-serif';
+            ctx.fillText(trLbl, cx + colW / 2, y + 25);
           }
         });
       });
