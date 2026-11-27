@@ -3,7 +3,7 @@
  * - Panggilan API (Apps Script) selalu langsung ke jaringan, tidak pernah di-cache
  * Naikkan VERSION setiap kali index.html diubah supaya semua HP mengambil versi baru.
  */
-const VERSION = 'ip-overtime-v31';
+const VERSION = 'ip-overtime-v32';
 const SHELL = [
   './',
   './index.html',
@@ -34,8 +34,8 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(req.url);
 
-  // API Apps Script: jangan disentuh
-  if (url.hostname.endsWith('script.google.com') || url.hostname.endsWith('googleusercontent.com')) return;
+  // API Apps Script & Proxy Vercel (/api/*): jangan pernah di-cache
+  if (url.pathname.startsWith('/api/') || url.hostname.endsWith('script.google.com') || url.hostname.endsWith('googleusercontent.com')) return;
 
   // Navigasi halaman: network-first, fallback ke cache saat offline
   if (req.mode === 'navigate') {

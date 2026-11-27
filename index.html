@@ -1563,9 +1563,11 @@
     ];
 
     // ====================================================================
-    // KONFIGURASI: isi dengan URL Web App Apps Script (yang berakhiran /exec)
+    // KONFIGURASI API: pakai proxy Vercel (/api/gas) untuk sakelar D1 / GAS,
+    // dengan fallback langsung ke Apps Script bila dibuka dari file lokal.
     // ====================================================================
-    const API_URL = "https://script.google.com/macros/s/AKfycbzN0i_ZBTd2ImiwzSo2VQpMKrxUchjMgqjTJmRUfpnk0NHhDUZymWnUxEbwNwCy2MgP/exec";
+    const GAS_FALLBACK_URL = "https://script.google.com/macros/s/AKfycbzN0i_ZBTd2ImiwzSo2VQpMKrxUchjMgqjTJmRUfpnk0NHhDUZymWnUxEbwNwCy2MgP/exec";
+    const API_URL = (location.protocol === 'http:' || location.protocol === 'https:') ? "/api/gas" : GAS_FALLBACK_URL;
 
     const IN_GAS = typeof google !== 'undefined' && google.script && google.script.run;
     const isGAS = IN_GAS || !!API_URL;   // true bila backend tersedia
