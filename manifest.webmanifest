@@ -1,0 +1,24 @@
+{
+  "name": "Inspection & Packaging Overtime",
+  "short_name": "IP Overtime",
+  "description": "Sistem input lembur, rekap, approval dan leaderboard Inspection & Packaging Section.",
+  "lang": "id",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "id": "./",
+  "display": "standalone",
+  "background_color": "#070A12",
+  "theme_color": "#6366F1",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Input Lembur", "short_name": "Input", "url": "./?tab=form", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Jadwal Overtime", "short_name": "Jadwal", "url": "./?tab=jadwal", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Rekap Lembur", "short_name": "Rekap", "url": "./?tab=rekap", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Panel ACC", "short_name": "ACC", "url": "./?tab=approval", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
