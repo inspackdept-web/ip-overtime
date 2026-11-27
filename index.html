@@ -1416,6 +1416,7 @@
                   <option value="Inspection Shift Leader D">Inspection Shift Leader D</option>
                   <option value="Inspection Shift D">Inspection Shift D</option>
                   <option value="Inspection Day Work (DW)">Inspection Day Work (DW)</option>
+                  <option value="Inspection Specialist">Inspection Specialist</option>
                   <option value="Packaging Shift A (PACK)">Packaging Shift A (PACK)</option>
                   <option value="Packaging Shift B (PACK)">Packaging Shift B (PACK)</option>
                   <option value="Packaging Shift C (PACK)">Packaging Shift C (PACK)</option>
@@ -3646,6 +3647,7 @@
       { label: 'Inspection Shift Leader D', group: 'D',    rosterGroup: 'D',  role: 'backup', order: 7 },
       { label: 'Inspection Shift D',        group: 'D',    rosterGroup: 'D',  role: 'main',   order: 8 },
       { label: 'Inspection Day Work (DW)',  group: 'DW',   rosterGroup: 'DW', role: 'dw',     order: 9 },
+      { label: 'Inspection Specialist',     group: 'SPEC', rosterGroup: 'DW', role: 'spec',   order: 9.5 },
       { label: 'Packaging Shift A (PACK)',  group: 'PACK', rosterGroup: 'A',  role: 'pack',   order: 10 },
       { label: 'Packaging Shift B (PACK)',  group: 'PACK', rosterGroup: 'B',  role: 'pack',   order: 11 },
       { label: 'Packaging Shift C (PACK)',  group: 'PACK', rosterGroup: 'C',  role: 'pack',   order: 12 },
@@ -3669,7 +3671,7 @@
     ];
 
     const SHIFT_GROUP_COLOR = {
-      A: '#EF4444', B: '#475569', C: '#2563EB', D: '#16A34A', DW: '#0891B2', PACK: '#9333EA'
+      A: '#EF4444', B: '#475569', C: '#2563EB', D: '#16A34A', DW: '#0891B2', SPEC: '#D97706', PACK: '#9333EA'
     };
 
     const ROSTER_STORE = {
@@ -3823,6 +3825,7 @@
         return POSITION_OPTIONS[13];
       }
       if (isDw) return POSITION_OPTIONS[8];
+      if (u.includes('SPECIALIST') || u.includes('SPEC')) return POSITION_OPTIONS.find(p => p.group === 'SPEC') || POSITION_OPTIONS[9];
       if (sh) {
         const role = isLeader ? 'backup' : 'main';
         return POSITION_OPTIONS.find(p => p.group === sh && p.role === role) || POSITION_OPTIONS[1];
@@ -4016,6 +4019,8 @@
       const yEl = document.getElementById('selectYearJadwal');
       if (mEl) mEl.value = m;
       if (yEl) yEl.value = y;
+      const now0 = new Date();
+      schedState.activeAnchorDate = (y === now0.getFullYear() && m === now0.getMonth() + 1) ? getTodayYMD() : toYMD(y, m, 1);
       loadJadwalBundle(true).then(() => {
         const now = new Date();
         if (y === now.getFullYear() && m === now.getMonth() + 1) scrollSchedToToday(false);
@@ -4026,6 +4031,8 @@
     function onJadwalPeriodChange() {
       schedState.month = parseInt(document.getElementById('selectMonthJadwal').value, 10);
       schedState.year = parseInt(document.getElementById('selectYearJadwal').value, 10);
+      const now0 = new Date();
+      schedState.activeAnchorDate = (schedState.year === now0.getFullYear() && schedState.month === now0.getMonth() + 1) ? getTodayYMD() : toYMD(schedState.year, schedState.month, 1);
       loadJadwalBundle(true).then(() => {
         const now = new Date();
         if (schedState.year === now.getFullYear() && schedState.month === now.getMonth() + 1) scrollSchedToToday(false);
@@ -4369,10 +4376,33 @@
       }
     }
 
-    function renderSchedMatrix() {
+    function getSortedEmployeesForDate(refDate) {
+      const d = refDate || getTodayYMD();
+      return (schedState.employees || []).map(emp => {
+        const eff = getEmpMetaForDate(emp, d);
+        const posMeta = POSITION_OPTIONS.find(p => p.label.toLowerCase() === String(eff.dept || '').toLowerCase()) || parsePositionMeta(eff.dept);
+        return {
+          ...emp,
+          group: eff.group,
+          rosterGroup: eff.rosterGroup,
+          role: eff.role,
+          dept: eff.dept,
+          order: posMeta.order
+        };
+      }).sort((a, b) => (a.order - b.order) || a.name.localeCompare(b.name));
+    }
+
+    function getShiftFormationKey(refDate) {
+      return getSortedEmployeesForDate(refDate).map(e => `${e.name}:${e.group}:${e.role}`).join('|');
+    }
+
+    function renderSchedMatrix(anchorDateOverride) {
       const container = document.getElementById('schedMatrixContainer');
       if (!container) return;
-      const emps = schedState.employees;
+      const refDate = anchorDateOverride || schedState.activeAnchorDate || getTodayYMD();
+      schedState.activeAnchorDate = refDate;
+      schedState.activeFormationKey = getShiftFormationKey(refDate);
+      const emps = getSortedEmployeesForDate(refDate);
       if (!emps.length) {
         container.innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">Belum ada data karyawan. Tambahkan melalui tab ACC &rarr; Karyawan.</div>';
         return;
@@ -4467,7 +4497,7 @@
           let inner = '';
           if (trOnDate && trOnDate.toDept) {
             const tm = parsePositionMeta(trOnDate.toDept);
-            const shortLbl = tm.role === 'backup' ? `Leader ${tm.group}` : (tm.group === 'DW' || tm.group === 'PACK' ? tm.group : `Shift ${tm.group}`);
+            const shortLbl = tm.role === 'backup' ? `Leader ${tm.group}` : (tm.group === 'DW' || tm.group === 'PACK' || tm.group === 'SPEC' ? tm.group : `Shift ${tm.group}`);
             inner += `<div class="mb-1 inline-block px-1.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/45 text-amber-800 dark:text-amber-300 text-[9px] font-extrabold whitespace-nowrap" title="Pindah shift ke ${esc(trOnDate.toDept)} mulai ${fmtDMY(ds)}">🔄 &rarr; ${esc(shortLbl)}</div>`;
           }
           if (displayVal) {
@@ -4549,7 +4579,21 @@
     let ccScrollTimer = null;
     function onSchedHorizontalScroll() {
       if (ccScrollTimer) clearTimeout(ccScrollTimer);
-      ccScrollTimer = setTimeout(renderVisibleCcTables, 80);
+      ccScrollTimer = setTimeout(() => {
+        const vis = getVisibleDateColumns();
+        if (vis.length) {
+          const leftDate = vis[0];
+          const newKey = getShiftFormationKey(leftDate);
+          if (newKey !== schedState.activeFormationKey) {
+            const wrap = document.getElementById('schedScrollWrap');
+            const prevLeft = wrap ? wrap.scrollLeft : 0;
+            renderSchedMatrix(leftDate);
+            if (wrap) wrap.scrollLeft = prevLeft;
+            return;
+          }
+        }
+        renderVisibleCcTables();
+      }, 90);
     }
 
     function getVisibleDateColumns() {
@@ -5558,7 +5602,7 @@
     function generateSchedulePng(startDate, numDays, autoDownload) {
       const dates = [];
       for (let i = 0; i < numDays; i++) dates.push(addDaysYMD(startDate, i));
-      const emps = schedState.employees;
+      const emps = getSortedEmployeesForDate(startDate);
       const scale = 2;
       const pad = 24;
       const rosterW = 252;
