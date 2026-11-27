@@ -2002,9 +2002,15 @@
           </div>`;
         }
         if (empEditingId !== null && empIdStr === String(empEditingId)) {
-          return `<form onsubmit="saveEditedEmployee(event, '${esc(empIdStr).replace(/'/g, "\\'")}')" class="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/35 space-y-2.5">
+          const nextMonFirst = (() => {
+            const n = new Date();
+            const ny = n.getMonth() === 11 ? n.getFullYear() + 1 : n.getFullYear();
+            const nm = n.getMonth() === 11 ? 1 : n.getMonth() + 2;
+            return `${ny}-${String(nm).padStart(2, '0')}-01`;
+          })();
+          return `<form onsubmit="saveEditedEmployee(event, '${esc(empIdStr).replace(/'/g, "\\'")}', '${esc(emp.department || '').replace(/'/g, "\\'")}')" class="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/35 space-y-2.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-extrabold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit Data Karyawan</span>
+              <span class="text-xs font-extrabold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit Data / Pindah Shift Karyawan</span>
               <button type="button" onclick="cancelEditEmployee()" class="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -2019,7 +2025,7 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">Jabatan / Shift</label>
+                <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">Jabatan / Shift Baru</label>
                 <select id="empEditDept" required class="w-full bg-white dark:bg-dark-900 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-white/15 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   ${buildPositionOptionsHtml(emp.department || '')}
                 </select>
@@ -2027,6 +2033,18 @@
               <div>
                 <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">Email Supervisor</label>
                 <input type="email" id="empEditEmail" value="${esc(emp.supervisorEmail || '')}" placeholder="Opsional" class="w-full bg-white dark:bg-dark-900 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-white/15 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-white/80 dark:bg-dark-900/70 border border-indigo-500/20 space-y-2">
+              <label class="block text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 uppercase"><i class="fa-solid fa-calendar-check mr-1"></i>Waktu Berlaku Perpindahan Shift</label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                <select id="empEditMode" onchange="document.getElementById('empEditDateWrap').classList.toggle('hidden', this.value!=='scheduled')" class="w-full bg-slate-50 dark:bg-dark-850 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-white/15 px-3 py-2 text-xs font-bold">
+                  <option value="now">Berlaku Sekarang (Langsung)</option>
+                  <option value="scheduled">Terjadwal Mulai Tanggal...</option>
+                </select>
+                <div id="empEditDateWrap" class="hidden">
+                  <input type="date" id="empEditEffectiveDate" value="${nextMonFirst}" class="w-full bg-slate-50 dark:bg-dark-850 text-slate-900 dark:text-white rounded-xl border border-indigo-400 dark:border-indigo-500/40 px-3 py-1.5 text-xs font-bold">
+                </div>
               </div>
             </div>
             <div class="flex items-center justify-end gap-2 pt-1">
@@ -2037,6 +2055,12 @@
             </div>
           </form>`;
         }
+        const pendingTransfers = typeof getPendingTransfersForEmp === 'function' ? getPendingTransfersForEmp(emp.name) : [];
+        const transferBadgesHtml = pendingTransfers.map(tr => `
+          <div class="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/35 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+            <span>🔄 Pindah &rarr; ${esc(tr.toDept)} mulai ${fmtDMY(tr.effectiveDate)}</span>
+            <button type="button" onclick="cancelScheduledShiftTransfer('${esc(tr.key).replace(/'/g, "\\'")}')" title="Batalkan jadwal pindah shift" class="ml-1 text-rose-600 dark:text-rose-400 hover:underline font-extrabold">&times;</button>
+          </div>`).join('');
         return `<div class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-dark-850 border border-slate-200 dark:border-white/5">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 text-white font-extrabold text-sm flex items-center justify-center flex-shrink-0">${initial}</div>
@@ -2046,10 +2070,11 @@
                 <span class="px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-white/10 text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">${esc(empIdStr || '-')}</span>
               </div>
               <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5"><i class="fa-solid fa-id-badge text-[9px] mr-1"></i>${esc(emp.department || '-')}</p>
+              ${transferBadgesHtml}
             </div>
           </div>
           <div class="flex items-center gap-1.5 flex-shrink-0">
-            <button type="button" data-id="${esc(empIdStr)}" onclick="startEditEmployee(this.dataset.id)" title="Edit data karyawan" aria-label="Edit ${esc(emp.name)}" class="w-9 h-9 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center transition-all">
+            <button type="button" data-id="${esc(empIdStr)}" onclick="startEditEmployee(this.dataset.id)" title="Edit / Jadwalkan pindah shift" aria-label="Edit ${esc(emp.name)}" class="w-9 h-9 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center transition-all">
               <i class="fa-solid fa-pen-to-square text-sm"></i>
             </button>
             <button type="button" data-id="${esc(empIdStr)}" onclick="askDeleteEmployee(this.dataset.id)" title="Hapus karyawan" aria-label="Hapus ${esc(emp.name)}" class="w-9 h-9 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center transition-all">
@@ -2065,14 +2090,27 @@
     function askDeleteEmployee(id) { empEditingId = null; empPendingDeleteId = String(id); renderEmployeeList(); }
     function cancelDeleteEmployee() { empPendingDeleteId = null; renderEmployeeList(); }
 
-    async function saveEditedEmployee(e, oldId) {
+    async function saveEditedEmployee(e, oldId, oldDept) {
       e.preventDefault();
+      const mode = document.getElementById('empEditMode')?.value || 'now';
+      const effDate = document.getElementById('empEditEffectiveDate')?.value || '';
+      const newDept = document.getElementById('empEditDept').value.trim();
       const payload = {
         id: document.getElementById('empEditId').value.trim(),
         name: document.getElementById('empEditName').value.trim(),
-        department: document.getElementById('empEditDept').value.trim(),
+        department: mode === 'scheduled' ? (oldDept || newDept) : newDept,
         supervisorEmail: document.getElementById('empEditEmail').value.trim()
       };
+      if (mode === 'scheduled') {
+        if (!effDate) {
+          Swal.fire({ icon: 'warning', title: 'Tanggal Wajib Diisi', text: 'Pilih tanggal mulai perpindahan shift.', confirmButtonColor: '#6366F1' });
+          return;
+        }
+        if (newDept === oldDept) {
+          Swal.fire({ icon: 'warning', title: 'Shift Belum Diubah', text: 'Pilih Jabatan / Shift Baru yang berbeda dari shift saat ini.', confirmButtonColor: '#6366F1' });
+          return;
+        }
+      }
       const btn = document.getElementById('btnEmpEditSave');
       const oldHtml = btn ? btn.innerHTML : '';
       if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Menyimpan...</span>'; }
@@ -2083,14 +2121,44 @@
           Swal.fire({ icon: 'error', title: 'Gagal', text: (res && res.message) || 'Gagal memperbarui karyawan.', confirmButtonColor: '#6366F1' });
           return;
         }
+        if (mode === 'scheduled' && effDate) {
+          const key = `${payload.name}||${effDate}`;
+          const trObj = { fromDept: oldDept || '', toDept: newDept, effectiveDate: effDate, applied: false };
+          const sRes = await callBackend('saveScheduleBatch', [spvToken, parseInt(effDate.slice(0, 4), 10), [{ type: 'shiftTransfer', key, value: trObj }]]);
+          if (sRes && sRes.success) {
+            schedState.shiftTransfers[key] = trObj;
+            empToast(`Pindah shift ${payload.name} ke ${newDept} dijadwalkan mulai ${fmtDMY(effDate)}!`);
+          } else {
+            Swal.fire({ icon: 'error', title: 'Gagal', text: (sRes && sRes.message) || 'Gagal menjadwalkan pindah shift.' });
+            return;
+          }
+        } else {
+          empToast(res.message);
+        }
         empEditingId = null;
-        empToast(res.message);
         await loadEmployeeAdminList();
         loadEmployees();
+        if (typeof loadJadwalBundle === 'function') loadJadwalBundle(false);
       } catch (err) {
         Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Gagal memperbarui karyawan.', confirmButtonColor: '#6366F1' });
       } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
+      }
+    }
+
+    async function cancelScheduledShiftTransfer(key) {
+      try {
+        const yr = parseInt((key.split('||')[1] || '').slice(0, 4), 10) || new Date().getFullYear();
+        const res = await callBackend('saveScheduleBatch', [spvToken, yr, [{ type: 'shiftTransfer', key, value: '' }]]);
+        if (res && res.authError) { handleSpvSessionExpired(res.message); return; }
+        if (res && res.success) {
+          delete schedState.shiftTransfers[key];
+          empToast('Jadwal pindah shift dibatalkan.');
+          renderEmployeeList();
+          if (typeof renderSchedMatrix === 'function') renderSchedMatrix();
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
       }
     }
 
@@ -3684,6 +3752,7 @@
       reasons: {},      // "YYYY-MM-DD" -> "CC DJ1"
       ccFpCells: {},    // "CC_DJ1||YYYY-MM-DD||MC 11||FP1" -> { pic, done }
       ccMcCodes: {},    // "CC_DJ1||YYYY-MM-DD||MC 11" -> "#18117"
+      shiftTransfers: {}, // "empName||YYYY-MM-DD" -> { fromDept, toDept, effectiveDate, applied }
       submissions: [],  // dari Data_Lembur_YYYY (prev, cur, next month)
       loaded: false,
       scrolledOnce: false
@@ -4019,6 +4088,7 @@
           schedState.reasons = res.reasons || {};
           schedState.ccFpCells = res.ccFpCells || {};
           schedState.ccMcCodes = res.ccMcCodes || {};
+          schedState.shiftTransfers = res.shiftTransfers || {};
           if (Array.isArray(res.submissions)) collectedSubs.push(res.submissions);
           syncedOk = true;
         }
@@ -4078,6 +4148,41 @@
       return `${st} - ${en}`;
     }
 
+    function getPendingTransfersForEmp(empName) {
+      const target = normEmpName(empName);
+      const today = getTodayYMD();
+      const out = [];
+      Object.keys(schedState.shiftTransfers || {}).forEach(k => {
+        const tr = schedState.shiftTransfers[k];
+        if (!tr || tr.applied || !tr.effectiveDate) return;
+        const namePart = k.split('||')[0];
+        if (normEmpName(namePart) === target && tr.effectiveDate > today) {
+          out.push({ key: k, ...tr });
+        }
+      });
+      return out.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+    }
+
+    function getEmpMetaForDate(emp, dateStr) {
+      if (!emp) return { group: 'PACK', rosterGroup: 'DW', role: 'pack', dept: '' };
+      const target = normEmpName(emp.name);
+      const d = normDateYMD(dateStr);
+      let latest = null;
+      Object.keys(schedState.shiftTransfers || {}).forEach(k => {
+        const tr = schedState.shiftTransfers[k];
+        if (!tr || !tr.effectiveDate || !tr.toDept) return;
+        const namePart = k.split('||')[0];
+        if (normEmpName(namePart) === target && tr.effectiveDate <= d) {
+          if (!latest || tr.effectiveDate > latest.effectiveDate) latest = tr;
+        }
+      });
+      if (latest) {
+        const m = parsePositionMeta(latest.toDept);
+        return { group: m.group, rosterGroup: m.rosterGroup || m.group, role: m.role, dept: latest.toDept };
+      }
+      return { group: emp.group, rosterGroup: emp.rosterGroup || emp.group, role: emp.role, dept: emp.dept };
+    }
+
     function computeNetOvertimeFromCell(emp, dateStr, cellVal) {
       if (!cellVal || LEAVE_VALUES.includes(cellVal)) return null;
       const clean = String(cellVal).replace(/\s+/g, '');
@@ -4085,7 +4190,7 @@
       if (!m) return null;
       const sh = m[1], sm = m[2], eh = m[3], em = m[4];
       const fullStart = `${sh}:${sm}`, fullEnd = `${eh}:${em}`;
-      const rg = emp ? emp.rosterGroup : 'DW';
+      const rg = emp ? getEmpMetaForDate(emp, dateStr).rosterGroup : 'DW';
       const rst = getRosterForDate(dateStr);
 
       if (fullStart === '07:00' && fullEnd === '19:00') {
@@ -4357,11 +4462,17 @@
           const sub = findSubmissionForCell(emp.name, ds);
           const displayVal = manualVal || (sub ? formatSpanFromSubmission(sub, emp) : '');
           const taskVal = schedState.tasks[key] || '';
+          const trOnDate = (schedState.shiftTransfers || {})[key] || null;
 
           let inner = '';
+          if (trOnDate && trOnDate.toDept) {
+            const tm = parsePositionMeta(trOnDate.toDept);
+            const shortLbl = tm.role === 'backup' ? `Leader ${tm.group}` : (tm.group === 'DW' || tm.group === 'PACK' ? tm.group : `Shift ${tm.group}`);
+            inner += `<div class="mb-1 inline-block px-1.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/45 text-amber-800 dark:text-amber-300 text-[9px] font-extrabold whitespace-nowrap" title="Pindah shift ke ${esc(trOnDate.toDept)} mulai ${fmtDMY(ds)}">🔄 &rarr; ${esc(shortLbl)}</div>`;
+          }
           if (displayVal) {
             if (LEAVE_VALUES.includes(displayVal)) {
-              inner = `<span class="leave-pill">${esc(displayVal)}</span>`;
+              inner += `<span class="leave-pill">${esc(displayVal)}</span>`;
             } else {
               let boxCls = 'ot-box-scheduled';
               if (sub) {
@@ -4370,7 +4481,7 @@
                 const endMs = getShiftEndTimestamp(ds, displayVal);
                 if (endMs && (Date.now() - endMs) / 3600000 >= 48) boxCls = 'ot-box-overdue';
               }
-              inner = `<div class="ot-box ${boxCls}">
+              inner += `<div class="ot-box ${boxCls}">
                 <div class="ot-box-time">${esc(displayVal)}</div>
                 ${taskVal ? `<div class="ot-box-task">${esc(taskVal)}</div>` : ''}
               </div>`;
@@ -4644,7 +4755,7 @@
 
     function buildDailyRosterCardHtml(dateStr) {
       const rst = getRosterForDate(dateStr);
-      const byGroup = g => schedState.employees.filter(e => e.group === g && e.role === 'main').map(e => e.name).join(', ') || '-';
+      const byGroup = g => schedState.employees.filter(e => { const m = getEmpMetaForDate(e, dateStr); return m.group === g && m.role === 'main'; }).map(e => e.name).join(', ') || '-';
       const offInfo = getOffDayStatus(dateStr, rst.off);
       return `<div class="rounded-2xl bg-slate-50 dark:bg-dark-850 border border-slate-200 dark:border-white/10 p-3 space-y-2">
         <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Shift Roster Harian • ${fmtDMY(dateStr)}</div>
@@ -4731,10 +4842,10 @@
     function computeLeaveAutoPlotOps(dateStr) {
       const ops = [];
       const rst = getRosterForDate(dateStr);
-      // Leader (backup) tidak lembur; semua anggota non-leader (main) dalam 1 shift dapat lembur di jam yang sama
-      const mainsByGroup = g => schedState.employees.filter(e => e.group === g && e.role === 'main');
-      const allShiftMembers = g => schedState.employees.filter(e => e.group === g && (e.role === 'main' || e.role === 'backup'));
-      const dwEmps = schedState.employees.filter(e => e.role === 'dw');
+      // Leader (backup) tidak lembur; semua anggota non-leader (main) dalam 1 shift dapat lembur di jam yang sama (mengikuti perpindahan shift terjadwal pada dateStr)
+      const mainsByGroup = g => schedState.employees.filter(e => { const m = getEmpMetaForDate(e, dateStr); return m.group === g && m.role === 'main'; });
+      const allShiftMembers = g => schedState.employees.filter(e => { const m = getEmpMetaForDate(e, dateStr); return m.group === g && (m.role === 'main' || m.role === 'backup'); });
+      const dwEmps = schedState.employees.filter(e => getEmpMetaForDate(e, dateStr).role === 'dw');
       const activeGroups = [rst.pagi, rst.siang, rst.malam];
 
       // Deteksi shift aktif yang anggotanya (baik Leader maupun Main) sedang cuti
@@ -4896,8 +5007,8 @@
 
       if (val && isAutoPlotEventReason(val)) {
         const rst = getRosterForDate(dateStr);
-        const mainsByGroup = g => schedState.employees.filter(e => e.group === g && e.role === 'main');
-        const dwEmps = schedState.employees.filter(e => e.role === 'dw');
+        const mainsByGroup = g => schedState.employees.filter(e => { const m = getEmpMetaForDate(e, dateStr); return m.group === g && m.role === 'main'; });
+        const dwEmps = schedState.employees.filter(e => getEmpMetaForDate(e, dateStr).role === 'dw');
         const plotGroupIfFree = (emps, span) => {
           (emps || []).forEach(emp => {
             const k = `${emp.name}||${dateStr}`;
@@ -5006,8 +5117,8 @@
           ops.push({ type: 'reason', key: cur, value: type });
           if (autoPlotEvents.includes(type)) {
             const rst = getRosterForDate(cur);
-            const mainsByGroup = g => schedState.employees.filter(e => e.group === g && e.role === 'main');
-            const dwEmps = schedState.employees.filter(e => e.role === 'dw');
+            const mainsByGroup = g => schedState.employees.filter(e => { const m = getEmpMetaForDate(e, cur); return m.group === g && m.role === 'main'; });
+            const dwEmps = schedState.employees.filter(e => getEmpMetaForDate(e, cur).role === 'dw');
             const plotGroupIfFree = (emps, span) => {
               (emps || []).forEach(emp => {
                 const k = `${emp.name}||${cur}`;
