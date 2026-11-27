@@ -2792,6 +2792,9 @@
       select.innerHTML = '<option value="" disabled selected>-- Pilih Nama Anda --</option>';
 
       list.forEach(emp => {
+        // Posisi Shift Leader tidak melakukan lembur -> sembunyikan dari dropdown Form Pengajuan Lembur
+        const meta = typeof parsePositionMeta === 'function' ? parsePositionMeta(emp.department) : null;
+        if (meta && meta.role === 'backup') return;
         const opt = document.createElement('option');
         opt.value = emp.name;
         opt.textContent = `${emp.name} (${emp.department || 'IP Section'})`;
@@ -4726,14 +4729,16 @@
     function computeLeaveAutoPlotOps(dateStr) {
       const ops = [];
       const rst = getRosterForDate(dateStr);
-      const mainByGroup = g => schedState.employees.find(e => e.group === g && e.role === 'main');
-      const dwEmp = schedState.employees.find(e => e.role === 'dw');
+      // Leader (backup) tidak lembur; semua anggota non-leader (main) dalam 1 shift dapat lembur di jam yang sama
+      const mainsByGroup = g => schedState.employees.filter(e => e.group === g && e.role === 'main');
+      const allShiftMembers = g => schedState.employees.filter(e => e.group === g && (e.role === 'main' || e.role === 'backup'));
+      const dwEmps = schedState.employees.filter(e => e.role === 'dw');
       const activeGroups = [rst.pagi, rst.siang, rst.malam];
-      const onLeave = activeGroups.filter(g => {
-        const emp = mainByGroup(g);
-        if (!emp) return false;
-        return LEAVE_VALUES.includes(schedState.cells[`${emp.name}||${dateStr}`] || '');
-      });
+
+      // Deteksi shift aktif yang anggotanya (baik Leader maupun Main) sedang cuti
+      const onLeave = activeGroups.filter(g =>
+        allShiftMembers(g).some(emp => LEAVE_VALUES.includes(schedState.cells[`${emp.name}||${dateStr}`] || ''))
+      );
 
       const reasonMap = { 'Annual Leave': 'AL Cover', 'Sick Leave': 'Sick Leave Cover', 'Dispensasi Sp.Kep': 'SPKEP Cover' };
       const curRsn = schedState.reasons[dateStr] || '';
@@ -4745,59 +4750,61 @@
           delete schedState.reasons[dateStr];
           ops.push({ type: 'reason', key: dateStr, value: '' });
           [...activeGroups, rst.off].forEach(g => {
-            const emp = mainByGroup(g);
-            if (!emp) return;
-            const k = `${emp.name}||${dateStr}`;
-            if (schedState.cells[k] === '07.00 - 19.00' || schedState.cells[k] === '19.00 - 07.00') {
-              delete schedState.cells[k];
-              ops.push({ type: 'cell', key: k, value: '' });
-            }
+            mainsByGroup(g).forEach(emp => {
+              const k = `${emp.name}||${dateStr}`;
+              if (schedState.cells[k] === '07.00 - 19.00' || schedState.cells[k] === '19.00 - 07.00') {
+                delete schedState.cells[k];
+                ops.push({ type: 'cell', key: k, value: '' });
+              }
+            });
           });
-          if (dwEmp) {
+          dwEmps.forEach(dwEmp => {
             const dk = `${dwEmp.name}||${dateStr}`;
             if (schedState.cells[dk] === '07.00 - 19.00') {
               delete schedState.cells[dk];
               ops.push({ type: 'cell', key: dk, value: '' });
             }
-          }
+          });
         }
         return ops;
       }
 
-      // Set reason berdasarkan cuti pertama
-      const firstLeaveEmp = mainByGroup(onLeave[0]);
-      const firstLeaveVal = firstLeaveEmp ? schedState.cells[`${firstLeaveEmp.name}||${dateStr}`] : 'Annual Leave';
+      // Ambil label cuti pertama yang ditemukan (dari Leader atau Main)
+      let firstLeaveVal = 'Annual Leave';
+      const firstLeaveMember = allShiftMembers(onLeave[0]).find(emp => LEAVE_VALUES.includes(schedState.cells[`${emp.name}||${dateStr}`] || ''));
+      if (firstLeaveMember) firstLeaveVal = schedState.cells[`${firstLeaveMember.name}||${dateStr}`];
       const newRsn = reasonMap[firstLeaveVal] || 'AL Cover';
       if (isLeaveReason) {
         schedState.reasons[dateStr] = newRsn;
         ops.push({ type: 'reason', key: dateStr, value: newRsn });
       }
 
-      const setCell = (emp, span) => {
-        if (!emp) return;
-        const k = `${emp.name}||${dateStr}`;
-        if (!LEAVE_VALUES.includes(schedState.cells[k] || '')) {
-          schedState.cells[k] = span;
-          ops.push({ type: 'cell', key: k, value: span });
-        }
+      const setGroupCells = (emps, span) => {
+        (emps || []).forEach(emp => {
+          const k = `${emp.name}||${dateStr}`;
+          if (!LEAVE_VALUES.includes(schedState.cells[k] || '')) {
+            schedState.cells[k] = span;
+            ops.push({ type: 'cell', key: k, value: span });
+          }
+        });
       };
 
       if (onLeave.length === 1) {
         const remaining = activeGroups.filter(g => !onLeave.includes(g));
-        setCell(mainByGroup(remaining[0]), '07.00 - 19.00');
-        setCell(mainByGroup(remaining[1]), '19.00 - 07.00');
+        setGroupCells(mainsByGroup(remaining[0]), '07.00 - 19.00');
+        setGroupCells(mainsByGroup(remaining[1]), '19.00 - 07.00');
       } else if (onLeave.length === 2) {
         const remaining = activeGroups.filter(g => !onLeave.includes(g))[0];
-        const remEmp = mainByGroup(remaining);
-        const offEmp = mainByGroup(rst.off);
+        const remEmps = mainsByGroup(remaining);
+        const offEmps = mainsByGroup(rst.off);
         const offStatus = getOffDayStatus(dateStr, rst.off);
-        if (offStatus.canCallIn && offEmp) {
-          setCell(remEmp, remaining === rst.malam ? '19.00 - 07.00' : '07.00 - 19.00');
-          setCell(offEmp, remaining === rst.malam ? '07.00 - 19.00' : '19.00 - 07.00');
+        if (offStatus.canCallIn && offEmps.length) {
+          setGroupCells(remEmps, remaining === rst.malam ? '19.00 - 07.00' : '07.00 - 19.00');
+          setGroupCells(offEmps, remaining === rst.malam ? '07.00 - 19.00' : '19.00 - 07.00');
         } else {
           // OFF sedang Libur ke-1 pasca Malam -> wajib istirahat -> fallback ke DW (07.00 - 19.00)
-          setCell(dwEmp, '07.00 - 19.00');
-          setCell(remEmp, '19.00 - 07.00');
+          setGroupCells(dwEmps, '07.00 - 19.00');
+          setGroupCells(remEmps, '19.00 - 07.00');
         }
       }
       return ops;
@@ -4879,20 +4886,21 @@
 
       if (val && isAutoPlotEventReason(val)) {
         const rst = getRosterForDate(dateStr);
-        const mainByGroup = g => schedState.employees.find(e => e.group === g && e.role === 'main');
-        const dwEmp = schedState.employees.find(e => e.role === 'dw');
-        const plotIfFree = (emp, span) => {
-          if (!emp) return;
-          const k = `${emp.name}||${dateStr}`;
-          if (!LEAVE_VALUES.includes(schedState.cells[k] || '')) {
-            schedState.cells[k] = span;
-            ops.push({ type: 'cell', key: k, value: span });
-          }
+        const mainsByGroup = g => schedState.employees.filter(e => e.group === g && e.role === 'main');
+        const dwEmps = schedState.employees.filter(e => e.role === 'dw');
+        const plotGroupIfFree = (emps, span) => {
+          (emps || []).forEach(emp => {
+            const k = `${emp.name}||${dateStr}`;
+            if (!LEAVE_VALUES.includes(schedState.cells[k] || '')) {
+              schedState.cells[k] = span;
+              ops.push({ type: 'cell', key: k, value: span });
+            }
+          });
         };
-        plotIfFree(mainByGroup(rst.pagi), '07.00 - 19.00');
-        plotIfFree(mainByGroup(rst.siang), '07.00 - 19.00');
-        plotIfFree(mainByGroup(rst.malam), '19.00 - 07.00');
-        plotIfFree(dwEmp, '07.00 - 19.00');
+        plotGroupIfFree(mainsByGroup(rst.pagi), '07.00 - 19.00');
+        plotGroupIfFree(mainsByGroup(rst.siang), '07.00 - 19.00');
+        plotGroupIfFree(mainsByGroup(rst.malam), '19.00 - 07.00');
+        plotGroupIfFree(dwEmps, '07.00 - 19.00');
       }
 
       closeJadwalModal();
@@ -4916,8 +4924,8 @@
 
     function openAutoEventModal() {
       const today = getTodayYMD();
-      const empOpts = schedState.employees.filter(e => e.role === 'main' || e.role === 'dw')
-        .map(e => `<option value="${esc(e.name)}">${esc(e.name)} (Shift ${e.group})</option>`).join('');
+      const empOpts = schedState.employees.filter(e => e.role === 'backup' || e.role === 'main' || e.role === 'dw')
+        .map(e => `<option value="${esc(e.name)}">${esc(e.name)} (${e.role === 'backup' ? 'Leader ' : ''}Shift ${e.group})</option>`).join('');
       const body = `
         <div class="space-y-3">
           <div>
@@ -4988,20 +4996,21 @@
           ops.push({ type: 'reason', key: cur, value: type });
           if (autoPlotEvents.includes(type)) {
             const rst = getRosterForDate(cur);
-            const mainByGroup = g => schedState.employees.find(e => e.group === g && e.role === 'main');
-            const dwEmp = schedState.employees.find(e => e.role === 'dw');
-            const plotIfFree = (emp, span) => {
-              if (!emp) return;
-              const k = `${emp.name}||${cur}`;
-              if (!LEAVE_VALUES.includes(schedState.cells[k] || '')) {
-                schedState.cells[k] = span;
-                ops.push({ type: 'cell', key: k, value: span });
-              }
+            const mainsByGroup = g => schedState.employees.filter(e => e.group === g && e.role === 'main');
+            const dwEmps = schedState.employees.filter(e => e.role === 'dw');
+            const plotGroupIfFree = (emps, span) => {
+              (emps || []).forEach(emp => {
+                const k = `${emp.name}||${cur}`;
+                if (!LEAVE_VALUES.includes(schedState.cells[k] || '')) {
+                  schedState.cells[k] = span;
+                  ops.push({ type: 'cell', key: k, value: span });
+                }
+              });
             };
-            plotIfFree(mainByGroup(rst.pagi), '07.00 - 19.00');
-            plotIfFree(mainByGroup(rst.siang), '07.00 - 19.00');
-            plotIfFree(mainByGroup(rst.malam), '19.00 - 07.00');
-            plotIfFree(dwEmp, '07.00 - 19.00');
+            plotGroupIfFree(mainsByGroup(rst.pagi), '07.00 - 19.00');
+            plotGroupIfFree(mainsByGroup(rst.siang), '07.00 - 19.00');
+            plotGroupIfFree(mainsByGroup(rst.malam), '19.00 - 07.00');
+            plotGroupIfFree(dwEmps, '07.00 - 19.00');
           }
         }
         cur = addDaysYMD(cur, 1);
