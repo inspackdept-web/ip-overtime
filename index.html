@@ -6074,7 +6074,8 @@
       const medIndigo = { style: 'medium', color: { argb: 'FF4338CA' } };
       const dayShort = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
       const mShort = mName.slice(0, 3);
-      const grpArgb = { A: 'FFDC2626', B: 'FF0F172A', C: 'FF2563EB', D: 'FF16A34A', DW: 'FF0891B2', PACK: 'FF9333EA' };
+      const grpArgb = { SPV: 'FF4F46E5', A: 'FFDC2626', B: 'FF0F172A', C: 'FF2563EB', D: 'FF16A34A', DW: 'FF0891B2', SPEC: 'FFD97706', PACK: 'FF9333EA' };
+      const empsForMonth = getSortedEmployeesForDate(dates[0]);
 
       // ================================================================
       // SHEET 1: MATRIKS JADWAL OVERTIME + FREEZE PANES + SHIFT ROSTER
@@ -6149,11 +6150,11 @@
         cBot.border = border;
       });
 
-      // Baris Karyawan (mulai baris 5) + Merge kolom SHIFT
+      // Baris Karyawan (mulai baris 5) + Merge kolom SHIFT (mengikuti formasi bulan tsb!)
       let curRow = 5;
       const groupStartRow = {};
       const groupEndRow = {};
-      schedState.employees.forEach(emp => {
+      empsForMonth.forEach(emp => {
         const r = ws.getRow(curRow);
         r.height = 28;
         if (!groupStartRow[emp.group]) groupStartRow[emp.group] = curRow;
@@ -6182,6 +6183,12 @@
           const sub = findSubmissionForCell(emp.name, cm.ds);
           const val = schedState.cells[k] || (sub ? formatSpanFromSubmission(sub, emp) : '');
           const task = schedState.tasks[k] || '';
+          const trOnDate = (schedState.shiftTransfers || {})[k] || null;
+          let trLbl = '';
+          if (trOnDate && trOnDate.toDept) {
+            const tm = parsePositionMeta(trOnDate.toDept);
+            trLbl = '→ ' + (tm.role === 'backup' ? `Leader ${tm.group}` : (['DW','PACK','SPEC','SPV'].includes(tm.group) ? tm.group : `Shift ${tm.group}`));
+          }
 
           let bg = cm.isHol ? 'FFFFE4E6' : (cm.isWknd ? 'FFFFF1F2' : baseBg);
           let fg = 'FF0F172A';
@@ -6190,7 +6197,8 @@
           if (val) {
             bold = true;
             if (LEAVE_VALUES.includes(val)) {
-              bg = 'FFFFE4E6'; fg = 'FFBE123C';
+              bg = val === 'Off Movement' ? 'FFFEF3C7' : 'FFFFE4E6';
+              fg = val === 'Off Movement' ? 'FF92400E' : 'FFBE123C';
             } else if (sub && String(sub.status).toLowerCase() === 'approved') {
               bg = 'FFD1FAE5'; fg = 'FF065F46';
             } else if (sub) {
@@ -6203,7 +6211,12 @@
                 bg = 'FFF1F5F9'; fg = 'FF334155';
               }
             }
-            cell.value = (task && !LEAVE_VALUES.includes(val)) ? `${val}\n${task}` : val;
+            const extra = trLbl || (task && !LEAVE_VALUES.includes(val) ? task : '');
+            cell.value = extra ? `${val}\n${extra}` : val;
+          } else if (trLbl) {
+            bold = true;
+            bg = 'FFFEF3C7'; fg = 'FF92400E';
+            cell.value = trLbl;
           }
 
           cell.font = { name: 'Calibri', bold, size: 10, color: { argb: fg } };
@@ -6384,7 +6397,7 @@
       const prefix = `${y}-${pad2(m)}-`;
       const firstRecRow = 4;
       const chartData = [];
-      schedState.employees.forEach((emp, idx) => {
+      empsForMonth.forEach((emp, idx) => {
         const rn = firstRecRow + idx;
         const subs = (schedState.submissions || []).filter(s =>
           normEmpName(s.employeeName) === normEmpName(emp.name) && normDateYMD(s.date).startsWith(prefix)
