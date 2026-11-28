@@ -4513,6 +4513,15 @@
 
     function getOverdueList() {
       const nowMs = Date.now();
+      const y1 = schedState.year, m1 = schedState.month;
+      const prevY = m1 === 1 ? y1 - 1 : y1, prevM = m1 === 1 ? 12 : m1 - 1;
+      const nextY = m1 === 12 ? y1 + 1 : y1, nextM = m1 === 12 ? 1 : m1 + 1;
+      const loadedPrefixes = [
+        `${prevY}-${String(prevM).padStart(2, '0')}-`,
+        `${y1}-${String(m1).padStart(2, '0')}-`,
+        `${nextY}-${String(nextM).padStart(2, '0')}-`
+      ];
+
       const out = [];
       Object.keys(schedState.cells).forEach(k => {
         const val = schedState.cells[k];
@@ -4520,13 +4529,18 @@
         const parts = k.split('||');
         if (parts.length !== 2) return;
         const [empName, dateStr] = parts;
+        // Hanya cek bulan yang data pengajuannya ikut dimuat (prev, current, next) agar data historis tidak false-positive
+        if (!loadedPrefixes.some(p => dateStr.startsWith(p))) return;
+        const emp = schedState.employees.find(e => e.name === empName) || null;
+        // Skip Leader/Backup & jadwal normal tanpa jam lembur bersih
+        if (emp && emp.role === 'backup') return;
+        const net = computeNetOvertimeFromCell(emp, dateStr, val);
+        if (!net || net.hours <= 0) return;
         if (findSubmissionForCell(empName, dateStr)) return;
         const endMs = getShiftEndTimestamp(dateStr, val);
         if (!endMs) return;
         const diffHrs = (nowMs - endMs) / 3600000;
         if (diffHrs >= 48) {
-          const emp = schedState.employees.find(e => e.name === empName) || null;
-          const net = computeNetOvertimeFromCell(emp, dateStr, val) || { start: '15:00', end: '19:00', hours: 4 };
           out.push({
             empName, dateStr, cellVal: val,
             reason: schedState.reasons[dateStr] || 'Annual Leave Cover',
