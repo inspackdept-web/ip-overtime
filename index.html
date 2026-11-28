@@ -889,6 +889,75 @@
         </div>
       </div>
 
+      <!-- REKAP & TREN LEMBUR TAHUNAN (JAN - DES) -->
+      <div id="annualSummaryCard" class="glass-card rounded-3xl p-6 sm:p-7 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-emerald-500"></i>
+              Rekap &amp; Tren Lembur Tahunan
+            </h3>
+            <p id="annualSummarySubText" class="text-xs text-slate-500 dark:text-slate-400">
+              Tren akumulasi jam lembur Januari – Desember • Klik batang bulan untuk lompat ke detail bulan tersebut
+            </p>
+          </div>
+          <div class="flex items-center gap-2 self-start sm:self-auto bg-slate-100/80 dark:bg-dark-900/90 p-1.5 rounded-xl border border-slate-200 dark:border-white/5">
+            <span class="px-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Tahun:</span>
+            <select id="selectAnnualYear" onchange="loadAnnualSummary(this.value)" class="bg-white dark:bg-dark-850 text-slate-800 dark:text-white text-xs font-bold rounded-lg px-2.5 py-1.5 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+              <option value="2025">2025</option>
+              <option value="2026" selected>2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 4 Mini KPI Tahunan -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="p-4 rounded-2xl bg-slate-50/90 dark:bg-dark-900/70 border border-slate-200 dark:border-white/5">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Jam Setahun</p>
+            <p id="annualTotalHours" class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">0.0 Jam</p>
+            <p id="annualActiveMonthsNote" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">0 bulan aktif</p>
+          </div>
+          <div class="p-4 rounded-2xl bg-slate-50/90 dark:bg-dark-900/70 border border-slate-200 dark:border-white/5">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Sesi Approved</p>
+            <p id="annualTotalSessions" class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">0 Sesi</p>
+            <p id="annualPendingNote" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Pending: 0.0 Jam</p>
+          </div>
+          <div class="p-4 rounded-2xl bg-slate-50/90 dark:bg-dark-900/70 border border-slate-200 dark:border-white/5">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Rata-rata / Bulan Aktif</p>
+            <p id="annualAvgMonth" class="text-xl font-black text-cyan-600 dark:text-cyan-400 mt-1">0.0 Jam</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Dari bulan yang ada lembur</p>
+          </div>
+          <div class="p-4 rounded-2xl bg-slate-50/90 dark:bg-dark-900/70 border border-slate-200 dark:border-white/5">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Bulan Puncak Lembur</p>
+            <p id="annualPeakMonth" class="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">-</p>
+            <p id="annualPeakHours" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">0.0 Jam</p>
+          </div>
+        </div>
+
+        <!-- Grafik Tren Bulanan (Jan - Des) -->
+        <div class="rounded-2xl bg-slate-50/70 dark:bg-dark-900/50 border border-slate-200/80 dark:border-white/5 p-3 sm:p-4">
+          <div id="chartAnnualTrend" class="w-full min-h-[290px] flex items-center justify-center text-slate-400 text-sm">
+            Memuat grafik tren tahunan...
+          </div>
+        </div>
+
+        <!-- Tabel Rekap Tahunan Per Karyawan (Jan - Des) -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <i class="fa-solid fa-table text-indigo-500"></i>
+              Matriks Akumulasi Tahunan per Karyawan (Jam Approved)
+            </h4>
+            <span id="annualEmpCount" class="text-xs font-medium text-slate-500 dark:text-slate-400">0 Karyawan</span>
+          </div>
+          <div id="tableAnnualEmployeeWrap" class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10">
+            <div class="text-center py-8 text-slate-400 text-xs">Memuat tabel tahunan...</div>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- ============================================================== -->
@@ -2747,10 +2816,13 @@
       if (rankingChart && rankingChart.w && rankingChart.w.config && rankingChart.w.config.tooltip) {
         rankingChart.w.config.tooltip.theme = theme;
       }
-      document.querySelectorAll('#chartRanking .apexcharts-tooltip, #chartRanking .apexcharts-xaxistooltip').forEach(el => {
+      document.querySelectorAll('#chartRanking .apexcharts-tooltip, #chartRanking .apexcharts-xaxistooltip, #chartAnnualTrend .apexcharts-tooltip, #chartReasonBreakdown .apexcharts-tooltip').forEach(el => {
         el.classList.toggle('apexcharts-theme-dark', theme === 'dark');
         el.classList.toggle('apexcharts-theme-light', theme !== 'dark');
       });
+      if (typeof lastAnnualSummaryData !== 'undefined' && lastAnnualSummaryData) {
+        renderAnnualSummary(lastAnnualSummaryData);
+      }
     }
 
     /**
@@ -3332,6 +3404,11 @@
             console.error(err);
           })
           .getRankingData(period.month, period.year);
+      }
+      if (typeof loadAnnualSummary === 'function') {
+        const annSel = document.getElementById('selectAnnualYear');
+        if (annSel) annSel.value = String(period.year);
+        loadAnnualSummary(period.year);
       }
     }
 
@@ -6965,6 +7042,218 @@
       closeJadwalModal();
       renderSchedMatrix();
       await persistScheduleOps([{ type: 'shiftSwap', key, value: '' }], 'Tukar shift sementara dibatalkan');
+    }
+
+    // ---- Rekap & Tren Tahunan (Jan - Des) ----
+    let annualTrendChart = null;
+    let lastAnnualSummaryData = null;
+
+    function loadAnnualSummary(yearOverride) {
+      const sel = document.getElementById('selectAnnualYear');
+      const y = parseInt(yearOverride || (sel && sel.value) || new Date().getFullYear(), 10);
+      if (sel) sel.value = String(y);
+      const subEl = document.getElementById('annualSummarySubText');
+      if (subEl) subEl.textContent = `Tren akumulasi jam lembur Januari – Desember ${y} • Klik batang bulan untuk lompat ke detail bulan tersebut`;
+
+      if (isGAS) {
+        gsr
+          .withSuccessHandler(data => renderAnnualSummary(data))
+          .withFailureHandler(err => {
+            console.error('getAnnualSummary error:', err);
+            const chartEl = document.getElementById('chartAnnualTrend');
+            if (chartEl) chartEl.innerHTML = '<div class="text-xs text-rose-500 py-8 text-center">Gagal memuat data tahunan. Pastikan backend sudah terbaru.</div>';
+          })
+          .getAnnualSummary(y);
+      }
+    }
+
+    function renderAnnualSummary(data) {
+      data = data || {};
+      lastAnnualSummaryData = data;
+      const y = data.year || new Date().getFullYear();
+      const shortMonths = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+      const monthly = Array.isArray(data.monthly) && data.monthly.length === 12
+        ? data.monthly
+        : Array.from({ length: 12 }, (_, i) => ({ month: i + 1, approvedHours: 0, pendingHours: 0, sessions: 0 }));
+
+      const totHrsEl = document.getElementById('annualTotalHours');
+      const actMonEl = document.getElementById('annualActiveMonthsNote');
+      const totSesEl = document.getElementById('annualTotalSessions');
+      const penNotEl = document.getElementById('annualPendingNote');
+      const avgMonEl = document.getElementById('annualAvgMonth');
+      const pkMonEl = document.getElementById('annualPeakMonth');
+      const pkHrsEl = document.getElementById('annualPeakHours');
+      const empCntEl = document.getElementById('annualEmpCount');
+
+      if (totHrsEl) totHrsEl.textContent = `${Number(data.totalApprovedHours || 0).toFixed(1)} Jam`;
+      if (actMonEl) actMonEl.textContent = `${data.activeMonths || 0} dari 12 bulan aktif`;
+      if (totSesEl) totSesEl.textContent = `${data.totalApprovedSessions || 0} Sesi`;
+      if (penNotEl) penNotEl.textContent = `Pending: ${Number(data.totalPendingHours || 0).toFixed(1)} Jam`;
+      if (avgMonEl) avgMonEl.textContent = `${Number(data.avgPerActiveMonth || 0).toFixed(1)} Jam`;
+      if (data.peakMonth && data.peakMonth.month >= 1 && data.peakMonth.month <= 12) {
+        if (pkMonEl) pkMonEl.textContent = monthNames[data.peakMonth.month - 1];
+        if (pkHrsEl) pkHrsEl.textContent = `${Number(data.peakMonth.hours || 0).toFixed(1)} Jam (${monthly[data.peakMonth.month - 1].sessions} sesi)`;
+      } else {
+        if (pkMonEl) pkMonEl.textContent = '-';
+        if (pkHrsEl) pkHrsEl.textContent = 'Belum ada data';
+      }
+
+      // Render ApexCharts Tren Bulanan
+      const chartEl = document.getElementById('chartAnnualTrend');
+      if (chartEl && typeof ApexCharts !== 'undefined') {
+        if (annualTrendChart) {
+          try { annualTrendChart.destroy(); } catch (_) {}
+          annualTrendChart = null;
+        }
+        const isDark = document.documentElement.classList.contains('dark');
+        const approvedSeries = monthly.map(m => Number(m.approvedHours || 0));
+        const pendingSeries = monthly.map(m => Number(m.pendingHours || 0));
+        const hasPending = pendingSeries.some(v => v > 0);
+        const series = [{ name: 'Approved (Jam)', data: approvedSeries }];
+        if (hasPending) series.push({ name: 'Pending (Jam)', data: pendingSeries });
+
+        chartEl.innerHTML = '';
+        annualTrendChart = new ApexCharts(chartEl, {
+          chart: {
+            type: 'bar',
+            height: 295,
+            stacked: hasPending,
+            toolbar: { show: false },
+            background: 'transparent',
+            fontFamily: 'Plus Jakarta Sans, sans-serif',
+            events: {
+              dataPointSelection: function (_ev, _ctx, cfg) {
+                const mNum = cfg.dataPointIndex + 1;
+                if (mNum >= 1 && mNum <= 12) {
+                  const mSel = document.getElementById('selectMonthRanking');
+                  const ySel = document.getElementById('selectYearRanking');
+                  if (mSel) mSel.value = String(mNum);
+                  if (ySel) ySel.value = String(y);
+                  onPeriodChange();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }
+            }
+          },
+          series,
+          colors: hasPending ? ['#10B981', '#3B82F6'] : ['#10B981'],
+          plotOptions: {
+            bar: {
+              borderRadius: 7,
+              columnWidth: '58%',
+              dataLabels: { position: 'top' }
+            }
+          },
+          dataLabels: {
+            enabled: true,
+            offsetY: -18,
+            style: { fontSize: '10px', fontWeight: 700, colors: [isDark ? '#CBD5E1' : '#334155'] },
+            formatter: v => (v > 0 ? `${Math.round(v * 10) / 10}j` : '')
+          },
+          xaxis: {
+            categories: shortMonths,
+            labels: { style: { colors: isDark ? '#94A3B8' : '#475569', fontSize: '11px', fontWeight: 700 } },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+          },
+          yaxis: {
+            labels: {
+              style: { colors: isDark ? '#94A3B8' : '#64748B', fontSize: '11px' },
+              formatter: v => `${Math.round(v)}j`
+            }
+          },
+          grid: {
+            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)',
+            strokeDashArray: 4
+          },
+          legend: {
+            show: hasPending,
+            position: 'top',
+            labels: { colors: isDark ? '#CBD5E1' : '#334155' }
+          },
+          tooltip: {
+            theme: isDark ? 'dark' : 'light',
+            y: {
+              formatter: (val, opts) => {
+                const mObj = monthly[opts.dataPointIndex];
+                if (opts.seriesIndex === 0 && mObj) return `${Number(val).toFixed(1)} Jam (${mObj.sessions} sesi)`;
+                return `${Number(val).toFixed(1)} Jam`;
+              }
+            }
+          }
+        });
+        annualTrendChart.render();
+      }
+
+      // Render Tabel Matriks Tahunan per Karyawan
+      const wrap = document.getElementById('tableAnnualEmployeeWrap');
+      const emps = Array.isArray(data.byEmployee) ? data.byEmployee : [];
+      if (empCntEl) empCntEl.textContent = `${emps.length} Karyawan`;
+      if (!wrap) return;
+
+      if (!emps.length) {
+        wrap.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Belum ada lembur Approved pada tahun ${y}.</div>`;
+        return;
+      }
+
+      const monthTotals = monthly.map(m => Number(m.approvedHours || 0));
+      const headCols = shortMonths.map((mn, i) =>
+        `<th class="px-2.5 py-2.5 text-center text-[11px] font-bold uppercase ${monthTotals[i] > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'}">${mn}</th>`
+      ).join('');
+
+      const rowsHtml = emps.map((emp, idx) => {
+        const badge = idx === 0
+          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30'
+          : idx === 1
+            ? 'bg-slate-400/20 text-slate-600 dark:text-slate-300 border-slate-400/30'
+            : idx === 2
+              ? 'bg-amber-700/20 text-amber-700 dark:text-amber-500 border-amber-700/30'
+              : 'bg-slate-100 dark:bg-dark-900 text-slate-500 border-slate-200 dark:border-white/5';
+
+        const maxEmpM = Math.max(...(emp.monthlyHours || [0]));
+        const mCells = (emp.monthlyHours || Array(12).fill(0)).map(v => {
+          if (!v || v <= 0) return `<td class="px-2.5 py-2 text-center text-[11px] text-slate-300 dark:text-slate-700">-</td>`;
+          const isPeak = v === maxEmpM && maxEmpM > 0;
+          return `<td class="px-2.5 py-2 text-center text-xs font-semibold ${isPeak ? 'text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/10' : 'text-slate-700 dark:text-slate-200'}">${v.toFixed(1)}</td>`;
+        }).join('');
+
+        return `
+          <tr class="border-t border-slate-200/80 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
+            <td class="px-3 py-2 text-center sticky left-0 bg-white/95 dark:bg-dark-900/95">
+              <span class="inline-flex w-6 h-6 rounded-lg text-[11px] font-extrabold items-center justify-center border ${badge}">${emp.rank}</span>
+            </td>
+            <td class="px-3 py-2 font-semibold text-xs text-slate-900 dark:text-white whitespace-nowrap sticky left-10 bg-white/95 dark:bg-dark-900/95 border-r border-slate-200/70 dark:border-white/5">${esc(emp.name)}</td>
+            ${mCells}
+            <td class="px-3 py-2 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 border-l border-slate-200/70 dark:border-white/5">${emp.sessions}</td>
+            <td class="px-3 py-2 text-right text-xs font-black text-indigo-600 dark:text-cyan-400 whitespace-nowrap">${emp.totalHours.toFixed(1)} Jam</td>
+          </tr>`;
+      }).join('');
+
+      const footCells = monthTotals.map(v =>
+        `<td class="px-2.5 py-2.5 text-center text-xs font-extrabold ${v > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600'}">${v > 0 ? v.toFixed(1) : '-'}</td>`
+      ).join('');
+
+      wrap.innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-slate-100/90 dark:bg-dark-900/90">
+            <tr>
+              <th class="px-3 py-2.5 text-center text-[11px] font-bold uppercase text-slate-500 sticky left-0 bg-slate-100 dark:bg-dark-900 w-10">#</th>
+              <th class="px-3 py-2.5 text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 sticky left-10 bg-slate-100 dark:bg-dark-900 border-r border-slate-200/70 dark:border-white/5">Nama Karyawan</th>
+              ${headCols}
+              <th class="px-3 py-2.5 text-center text-[11px] font-bold uppercase text-slate-500 border-l border-slate-200/70 dark:border-white/5">Sesi</th>
+              <th class="px-3 py-2.5 text-right text-[11px] font-bold uppercase text-indigo-600 dark:text-cyan-400">Total ${y}</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+          <tfoot class="bg-slate-100/80 dark:bg-dark-900/80 border-t-2 border-slate-300 dark:border-white/10">
+            <tr>
+              <td colspan="2" class="px-3 py-2.5 text-xs font-extrabold uppercase text-slate-700 dark:text-slate-200 sticky left-0 bg-slate-100 dark:bg-dark-900 border-r border-slate-200/70 dark:border-white/5">Total Tim</td>
+              ${footCells}
+              <td class="px-3 py-2.5 text-center text-xs font-extrabold text-slate-700 dark:text-slate-200 border-l border-slate-200/70 dark:border-white/5">${data.totalApprovedSessions || 0}</td>
+              <td class="px-3 py-2.5 text-right text-xs font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">${Number(data.totalApprovedHours || 0).toFixed(1)} Jam</td>
+            </tr>
+          </tfoot>
+        </table>`;
     }
   </script>
 
